@@ -87,14 +87,14 @@ created span and some other contextual information. Example:
     # will be called after a outgoing request made with
     # `tornado.httpclient.AsyncHTTPClient.fetch` finishes.
     # `response`` is an instance of ``Future[tornado.httpclient.HTTPResponse]`.
-    def client_resposne_hook(span, future):
+    def client_response_hook(span, future):
         pass
 
     # apply tornado instrumentation with hooks
     TornadoInstrumentor().instrument(
         server_request_hook=server_request_hook,
         client_request_hook=client_request_hook,
-        client_response_hook=client_resposne_hook
+        client_response_hook=client_response_hook
     )
 
 Capture HTTP request and response headers
@@ -151,7 +151,6 @@ Note:
 API
 ---
 """
-
 
 from collections import namedtuple
 from functools import partial
@@ -260,15 +259,11 @@ class TornadoInstrumentor(BaseInstrumentor):
 
         def handler_init(init, handler, args, kwargs):
             cls = handler.__class__
-            if patch_handler_class(
-                tracer, server_histograms, cls, server_request_hook
-            ):
+            if patch_handler_class(tracer, server_histograms, cls, server_request_hook):
                 self.patched_handlers.append(cls)
             return init(*args, **kwargs)
 
-        wrap_function_wrapper(
-            "tornado.web", "RequestHandler.__init__", handler_init
-        )
+        wrap_function_wrapper("tornado.web", "RequestHandler.__init__", handler_init)
         wrap_function_wrapper(
             "tornado.httpclient",
             "AsyncHTTPClient.fetch",
@@ -375,9 +370,7 @@ def _wrap(cls, method_name, wrapper):
     wrapt.apply_patch(cls, method_name, wrapper)
 
 
-def _prepare(
-    tracer, server_histograms, request_hook, func, handler, args, kwargs
-):
+def _prepare(tracer, server_histograms, request_hook, func, handler, args, kwargs):
     server_histograms[_START_TIME] = default_timer()
 
     request = handler.request
@@ -459,9 +452,7 @@ def _get_attributes_from_request(request):
                 request.connection.context._orig_remote_ip
             )
 
-    return extract_attributes_from_object(
-        request, _traced_request_attrs, attrs
-    )
+    return extract_attributes_from_object(request, _traced_request_attrs, attrs)
 
 
 def _get_default_span_name(request):
@@ -550,9 +541,7 @@ def _finish_span(tracer, handler, error=None):
 
     if ctx.span.is_recording():
         ctx.span.set_attribute(SpanAttributes.HTTP_STATUS_CODE, status_code)
-        otel_status_code = http_status_to_status_code(
-            status_code, server_span=True
-        )
+        otel_status_code = http_status_to_status_code(status_code, server_span=True)
         otel_status_description = None
         if otel_status_code is StatusCode.ERROR:
             otel_status_description = reason
@@ -583,18 +572,14 @@ def _record_prepare_metrics(server_histograms, handler):
         request_size, attributes=metric_attributes
     )
 
-    active_requests_attributes = _create_active_requests_attributes(
-        handler.request
-    )
+    active_requests_attributes = _create_active_requests_attributes(handler.request)
     server_histograms[MetricInstruments.HTTP_SERVER_ACTIVE_REQUESTS].add(
         1, attributes=active_requests_attributes
     )
 
 
 def _record_on_finish_metrics(server_histograms, handler, error=None):
-    elapsed_time = round(
-        (default_timer() - server_histograms[_START_TIME]) * 1000
-    )
+    elapsed_time = round((default_timer() - server_histograms[_START_TIME]) * 1000)
 
     response_size = int(handler._headers.get("Content-Length", 0))
     metric_attributes = _create_metric_attributes(handler)
@@ -610,9 +595,7 @@ def _record_on_finish_metrics(server_histograms, handler, error=None):
         elapsed_time, attributes=metric_attributes
     )
 
-    active_requests_attributes = _create_active_requests_attributes(
-        handler.request
-    )
+    active_requests_attributes = _create_active_requests_attributes(handler.request)
     server_histograms[MetricInstruments.HTTP_SERVER_ACTIVE_REQUESTS].add(
         -1, attributes=active_requests_attributes
     )
